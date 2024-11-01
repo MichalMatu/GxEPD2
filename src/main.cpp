@@ -23,7 +23,7 @@ void setup()
 
   // Initialize display
   display.init(115200); // You can try different baud rates here if needed
-  display.setRotation(1);
+  display.setRotation(3);
   display.setFont(&FreeMonoBold9pt7b);
   display.setTextColor(GxEPD_BLACK);
   display.setFullWindow();
