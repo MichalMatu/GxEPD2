@@ -1,84 +1,106 @@
+#include <lvgl.h>
 #include <GxEPD2_BW.h>
-#include <Fonts/FreeMonoBold9pt7b.h>
-#include <Adafruit_FT6206.h> // Include FT6206-compatible touch library
+#include <GxEPD2_GFX.h>
 
 // Display initialization
 GxEPD2_BW<GxEPD2_290_GDEY029T94, GxEPD2_290_GDEY029T94::HEIGHT> display(GxEPD2_290_GDEY029T94(/*CS=*/27, /*DC=*/14, /*RST=*/12, /*BUSY=*/13));
+#define LV_HOR_RES_MAX 296 // Set this to your display's width
+#define LV_VER_RES_MAX 128 // Set this to your display's height
 
-// Touch initialization
-Adafruit_FT6206 ts;
+// Define LVGL-related variables and structures
+static lv_disp_draw_buf_t draw_buf;
+static lv_disp_drv_t disp_drv;
+static lv_color_t buf[LV_HOR_RES_MAX * 10]; // Display buffer
+
+// Function to convert lv_color_t to 4-bit grayscale value (0-15)
+uint8_t get_grayscale_4bit(lv_color_t pixel)
+{
+  uint8_t r, g, b;
+
+#if LV_COLOR_DEPTH == 16         // Assuming 16-bit RGB565 format
+  r = (pixel.full >> 11) & 0x1F; // Red component (5 bits)
+  g = (pixel.full >> 5) & 0x3F;  // Green component (6 bits)
+  b = pixel.full & 0x1F;         // Blue component (5 bits)
+
+  r = (r * 255) / 31;
+  g = (g * 255) / 63;
+  b = (b * 255) / 31;
+#elif LV_COLOR_DEPTH == 32 // Assuming 32-bit ARGB8888 format
+  r = pixel.ch.red;
+  g = pixel.ch.green;
+  b = pixel.ch.blue;
+#else
+  r = g = b = 0;
+#endif
+
+  uint8_t grayscale = (r + g + b) / 3;
+  return grayscale >> 4;
+}
+
+// LVGL flush function to send buffer data to display
+void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+{
+  const uint32_t full_w = 296;
+  const uint32_t full_h = 128;
+  uint32_t buffer_size = (full_w * full_h) / 2;
+
+  uint8_t *packed_buffer = new uint8_t[buffer_size];
+  for (uint32_t y = 0; y < full_h; y++)
+  {
+    for (uint32_t x = 0; x < full_w; x += 2)
+    {
+      uint32_t color_index = y * full_w + x;
+
+      lv_color_t pixel1 = color_p[color_index];
+      lv_color_t pixel2 = color_p[color_index + 1];
+
+      uint8_t grayscale1 = get_grayscale_4bit(pixel1);
+      uint8_t grayscale2 = get_grayscale_4bit(pixel2);
+
+      uint8_t packed_pixel = (grayscale1 << 4) | grayscale2;
+
+      uint32_t packed_index = (y * (full_w / 2)) + (x / 2);
+      packed_buffer[packed_index] = packed_pixel;
+    }
+  }
+
+  display.fillScreen(GxEPD_WHITE); // Clear the display with white color
+
+  display.drawImage(packed_buffer, 0, 0, full_w, full_h);
+  display.display();
+  delete[] packed_buffer;
+
+  lv_disp_flush_ready(disp);
+}
 
 void setup()
 {
-  // Initialize serial for debugging
   Serial.begin(115200);
-  delay(100); // Give some time for serial to initialize
 
-  // Configure touch controller reset pin
-  pinMode(39, OUTPUT);
-  digitalWrite(39, HIGH); // Set high to avoid resetting, adjust if needed
+  // Initialize display and LVGL
+  display.init();
+  lv_init();
 
-  // Initialize I2C bus with specific SDA and SCL pins
-  Wire.begin(33, 32); // SDA on 33, SCL on 32
+  // Initialize display buffer
+  lv_disp_draw_buf_init(&draw_buf, buf, NULL, LV_HOR_RES_MAX * 10);
 
-  // Initialize display
-  display.init(115200); // You can try different baud rates here if needed
-  display.setRotation(3);
-  display.setFont(&FreeMonoBold9pt7b);
-  display.setTextColor(GxEPD_BLACK);
-  display.setFullWindow();
+  // Set up the display driver
+  lv_disp_drv_init(&disp_drv);
+  disp_drv.hor_res = 296;
+  disp_drv.ver_res = 128;
+  disp_drv.flush_cb = my_disp_flush;
+  disp_drv.draw_buf = &draw_buf;
+  lv_disp_drv_register(&disp_drv);
 
-  // Draw initial message on display
-  display.firstPage();
-  do
-  {
-    display.fillScreen(GxEPD_WHITE);
-    display.setCursor(10, 50);
-    display.print("Hello, World!");
-  } while (display.nextPage());
-
-  // Add a delay before initializing the touch controller
-  delay(100);
-
-  // Initialize touch controller
-  if (ts.begin())
-  {
-    Serial.println("Touch controller initialized successfully.");
-  }
-  else
-  {
-    Serial.println("Failed to initialize touch controller.");
-  }
+  // Create a label to display
+  lv_obj_t *label = lv_label_create(lv_scr_act());
+  lv_label_set_text(label, "Hello, LVGL!");
+  lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
 void loop()
 {
-  // Check for touch points
-  if (ts.touched())
-  {
-    TS_Point point = ts.getPoint();
-    Serial.print("Touch detected at: ");
-    Serial.print("X = ");
-    Serial.print(point.x);
-    Serial.print(", Y = ");
-    Serial.println(point.y);
-
-    // Optional: Display touch coordinates on the screen
-    display.firstPage();
-    do
-    {
-      display.fillScreen(GxEPD_WHITE);
-      display.setCursor(10, 50);
-      display.print("Hello, World!");
-
-      // Display touch coordinates
-      display.setCursor(10, 100);
-      display.print("Touch at: ");
-      display.print(point.x);
-      display.print(", ");
-      display.print(point.y);
-    } while (display.nextPage());
-  }
-
-  delay(100); // Delay to avoid rapid polling
+  // Handle LVGL tasks
+  lv_timer_handler();
+  delay(5);
 }
