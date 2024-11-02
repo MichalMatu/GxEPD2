@@ -40,36 +40,29 @@ uint8_t get_grayscale_4bit(lv_color_t pixel)
 // LVGL flush function to send buffer data to display
 void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
 {
-  const uint32_t full_w = 296;
-  const uint32_t full_h = 128;
-  uint32_t buffer_size = (full_w * full_h) / 2;
-
-  uint8_t *packed_buffer = new uint8_t[buffer_size];
-  for (uint32_t y = 0; y < full_h; y++)
+  // Check if area is out of bounds
+  if (area->x2 < 0 || area->y2 < 0 || area->x1 > LV_HOR_RES_MAX || area->y1 > LV_VER_RES_MAX)
   {
-    for (uint32_t x = 0; x < full_w; x += 2)
+    lv_disp_flush_ready(disp);
+    return;
+  }
+
+  // display.fillScreen(GxEPD_WHITE); // Clear the display with white color
+
+  // Draw each pixel in the LVGL buffer
+  for (int y = area->y1; y <= area->y2; y++)
+  {
+    for (int x = area->x1; x <= area->x2; x++)
     {
-      uint32_t color_index = y * full_w + x;
-
-      lv_color_t pixel1 = color_p[color_index];
-      lv_color_t pixel2 = color_p[color_index + 1];
-
-      uint8_t grayscale1 = get_grayscale_4bit(pixel1);
-      uint8_t grayscale2 = get_grayscale_4bit(pixel2);
-
-      uint8_t packed_pixel = (grayscale1 << 4) | grayscale2;
-
-      uint32_t packed_index = (y * (full_w / 2)) + (x / 2);
-      packed_buffer[packed_index] = packed_pixel;
+      int index = (y - area->y1) * (area->x2 - area->x1 + 1) + (x - area->x1);
+      lv_color_t color = color_p[index];
+      uint8_t grayscale = get_grayscale_4bit(color);
+      uint16_t color_val = grayscale > 7 ? GxEPD_BLACK : GxEPD_WHITE;
+      display.drawPixel(x, y, color_val);
     }
   }
 
-  display.fillScreen(GxEPD_WHITE); // Clear the display with white color
-
-  display.drawImage(packed_buffer, 0, 0, full_w, full_h);
-  display.display();
-  delete[] packed_buffer;
-
+  display.display(); // Update the display with the drawn buffer
   lv_disp_flush_ready(disp);
 }
 
