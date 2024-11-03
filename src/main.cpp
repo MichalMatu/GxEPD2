@@ -47,9 +47,7 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
     return;
   }
 
-  // display.fillScreen(GxEPD_WHITE); // Clear the display with white color
-
-  // Draw each pixel in the LVGL buffer
+  // Rotate coordinates by 90 degrees to the left (counterclockwise)
   for (int y = area->y1; y <= area->y2; y++)
   {
     for (int x = area->x1; x <= area->x2; x++)
@@ -58,12 +56,19 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
       lv_color_t color = color_p[index];
       uint8_t grayscale = get_grayscale_4bit(color);
       uint16_t color_val = grayscale > 7 ? GxEPD_WHITE : GxEPD_BLACK;
-      display.drawPixel(x, y, color_val);
+
+      // Apply 90-degree rotation
+      int rotated_x = y;
+      int rotated_y = LV_HOR_RES_MAX - x - 1;
+      display.drawPixel(rotated_x, rotated_y, color_val);
     }
   }
 
-  display.display(); // Update the display with the drawn buffer
-  lv_disp_flush_ready(disp);
+  // Update the display; use partial update for smaller areas
+  bool partial_update = (area->x2 - area->x1 < LV_HOR_RES_MAX) || (area->y2 - area->y1 < LV_VER_RES_MAX);
+  display.display(partial_update); // Pass partial_update flag
+
+  lv_disp_flush_ready(disp); // Notify LVGL that flushing is complete
 }
 
 void setup()
