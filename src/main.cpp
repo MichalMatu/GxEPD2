@@ -57,7 +57,7 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
       int index = (y - area->y1) * (area->x2 - area->x1 + 1) + (x - area->x1);
       lv_color_t color = color_p[index];
       uint8_t grayscale = get_grayscale_4bit(color);
-      uint16_t color_val = grayscale > 7 ? GxEPD_BLACK : GxEPD_WHITE;
+      uint16_t color_val = grayscale > 7 ? GxEPD_WHITE : GxEPD_BLACK;
       display.drawPixel(x, y, color_val);
     }
   }
