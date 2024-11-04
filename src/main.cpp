@@ -10,7 +10,7 @@ GxEPD2_BW<GxEPD2_290_GDEY029T94, GxEPD2_290_GDEY029T94::HEIGHT> display(GxEPD2_2
 // Define LVGL-related variables and structures
 static lv_disp_draw_buf_t draw_buf;
 static lv_disp_drv_t disp_drv;
-static lv_color_t buf[LV_HOR_RES_MAX * 35]; // Display buffer
+static lv_color_t buf[LV_HOR_RES_MAX * 40]; // Display buffer
 
 // Function to convert lv_color_t to 4-bit grayscale value (0-15)
 uint8_t get_grayscale_4bit(lv_color_t pixel)
@@ -80,7 +80,7 @@ void setup()
   lv_init();
 
   // Initialize display buffer
-  lv_disp_draw_buf_init(&draw_buf, buf, NULL, LV_HOR_RES_MAX * 35);
+  lv_disp_draw_buf_init(&draw_buf, buf, NULL, LV_HOR_RES_MAX * 40);
 
   // Set up the display driver
   lv_disp_drv_init(&disp_drv);
